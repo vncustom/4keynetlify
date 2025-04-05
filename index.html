@@ -135,6 +135,7 @@
         const promptText = document.getElementById('prompt_text');
         const additionalText = document.getElementById('additional_text');
 
+
         function updateSplitLengthLabel() {
             const lang = languageSelect.value;
             if (lang === "ENG") {
@@ -166,25 +167,28 @@
             event.preventDefault(); // Prevent default form submission
 
             // Basic Validation
-            if (!promptText.value.trim()) {
+             if (!promptText.value.trim()) {
                 statusOutput.textContent = 'Error: Prompt cannot be empty.';
                 statusOutput.className = 'output-area error';
+                resultOutput.textContent = '';
                 return;
             }
             if (!additionalText.value.trim()) {
                 statusOutput.textContent = 'Error: Text to process cannot be empty.';
                 statusOutput.className = 'output-area error';
-                return;
+                 resultOutput.textContent = '';
+               return;
             }
              if (splitMethodSelect.value === "Theo số ký tự/từ" && (!splitLengthInput.value || parseInt(splitLengthInput.value) <= 0)) {
                 statusOutput.textContent = 'Error: Invalid number for characters/words per part.';
                 statusOutput.className = 'output-area error';
-                return;
+                 resultOutput.textContent = '';
+               return;
             }
 
 
             submitButton.disabled = true;
-            statusOutput.textContent = 'Processing... Please wait. This might take a while depending on the text length and model.';
+            statusOutput.textContent = 'Processing... Contacting backend function...';
             statusOutput.className = 'output-area status';
             resultOutput.textContent = ''; // Clear previous results
 
@@ -192,14 +196,14 @@
                 language: languageSelect.value,
                 model: modelSelect.value,
                 split_method: splitMethodSelect.value,
-                split_length: parseInt(splitLengthInput.value) || 15000, // Send 0 if not applicable? Or default?
+                split_length: parseInt(splitLengthInput.value) || 15000,
                 prompt: promptText.value,
                 text_to_process: additionalText.value
             };
 
+            let keyStatusInfo = "Key status not reported by backend."; // Default message
+
             try {
-                // Make API call to the Netlify Function endpoint
-                // Adjust the endpoint '/api/process' if your function is named differently or in a different path
                 const response = await fetch('/api/process', {
                     method: 'POST',
                     headers: {
@@ -208,22 +212,33 @@
                     body: JSON.stringify(formData),
                 });
 
-                const data = await response.json(); // Always try to parse JSON
+                const data = await response.json(); // Always try to parse JSON, even for errors
+
+                // Store key status if provided in the response
+                if (data && data.key_status) {
+                     keyStatusInfo = `API Key Status: [ ${data.key_status} ]`;
+                }
 
                 if (!response.ok) {
                     // Handle HTTP errors (e.g., 4xx, 5xx)
-                     throw new Error(data.error || `Request failed with status ${response.status}`);
+                    let errorMsg = data.error || `Request failed with status ${response.status}`;
+                    throw new Error(errorMsg); // Throw error to be caught below
                 }
 
-                // Success
-                statusOutput.textContent = 'Processing complete!';
-                statusOutput.className = 'output-area status success'; // Add a success class if desired
+                // --- Success ---
+                let overallStatus = data.status || 'Processing complete!'; // Get overall status if provided
+                statusOutput.textContent = `${overallStatus}\n${keyStatusInfo}`; // Combine overall status and key status
+                statusOutput.className = 'output-area status';
+                if (overallStatus.includes("error")) { // Make status visually an error if backend reported partial errors
+                     statusOutput.className = 'output-area error';
+                }
                 resultOutput.textContent = data.result || 'No content returned.';
 
 
             } catch (error) {
                 console.error("Fetch error:", error);
-                statusOutput.textContent = `Error: ${error.message}`;
+                // Display error and include any key status info we might have gotten before the error
+                statusOutput.textContent = `Error: ${error.message}\n${keyStatusInfo}`;
                 statusOutput.className = 'output-area error';
                 resultOutput.textContent = 'An error occurred. Please check the status message.';
             } finally {

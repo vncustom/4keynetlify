@@ -9,21 +9,13 @@ from flask import Flask, request, jsonify
 import json # Import json for potential parsing issues
 
 # --- Configuration ---
-# Read API keys from environment variables set in Netlify UI
-# Name them KEY1, KEY2, KEY3, KEY4 in Netlify
-API_KEYS = [
-    os.environ.get('KEY1'),
-    os.environ.get('KEY2'),
-    os.environ.get('KEY3'),
-    os.environ.get('KEY4'),
-]
-# Filter out any keys that weren't set
-VALID_API_KEYS = [key for key in API_KEYS if key and key.strip()]
-
+# Moved key loading inside the handler for per-request check & reporting
 BASE_URL = "https://openrouter.ai/api/v1"
 REQUEST_TIMEOUT = 600 # 10 minutes timeout for API call (Netlify function timeout is shorter!)
+EXPECTED_KEYS = ['KEY1', 'KEY2', 'KEY3', 'KEY4'] # Define expected keys
 
-# --- Text Splitting Logic (Adapted from original) ---
+# --- Text Splitting Logic (Adapted from original - NO CHANGES HERE) ---
+# ... (Keep the smart_split_by_words and split_text functions exactly as they were) ...
 
 def smart_split_by_words(text, max_words):
     """Splits English text by word count, trying to keep sentences together."""
@@ -171,20 +163,41 @@ def split_text(text, split_method, language, split_length):
 # --- Flask App & Netlify Function Handler ---
 app = Flask(__name__)
 
-# This is the function Netlify will run.
-# The route `/api/process` should match the fetch URL in index.html
-# Using `app.route` makes it runnable locally (`python process.py`)
-# Netlify typically picks up the `app` object.
 @app.route('/api/process', methods=['POST'])
 def handle_process():
     """Handles the POST request to process text."""
+
+    # --- Check Environment Variables ---
+    loaded_keys = {}
+    missing_keys = []
+    key_status_messages = []
+
+    for key_name in EXPECTED_KEYS:
+        key_value = os.environ.get(key_name)
+        if key_value and key_value.strip():
+            loaded_keys[key_name] = key_value
+            key_status_messages.append(f"{key_name}: Loaded OK")
+            print(f"Found environment variable: {key_name}") # Log found keys
+        else:
+            missing_keys.append(key_name)
+            key_status_messages.append(f"{key_name}: MISSING")
+            print(f"WARNING: Missing environment variable: {key_name}") # Log missing keys
+
+    VALID_API_KEYS = list(loaded_keys.values()) # Get list of actual key values
+    key_load_summary = ", ".join(key_status_messages)
+
+    # --- CRITICAL ERROR: No Keys Found ---
     if not VALID_API_KEYS:
-        print("ERROR: No valid API keys found in environment variables (KEY1-KEY4).")
-        return jsonify({"error": "Server configuration error: Missing API keys."}), 500
+        error_message = "Server configuration error: NO valid API keys (KEY1-KEY4) were found in environment variables. Cannot proceed."
+        print(f"ERROR: {error_message}")
+        # Return 500 Internal Server Error as it's a config issue
+        return jsonify({"error": error_message, "key_status": key_load_summary}), 500
 
     num_available_keys = len(VALID_API_KEYS)
-    print(f"Processing request with {num_available_keys} API key(s).")
+    print(f"Processing request with {num_available_keys} valid API key(s) found.")
+    print(f"Key Load Summary: {key_load_summary}") # Log summary
 
+    # --- Proceed with Processing ---
     try:
         data = request.get_json()
         if not data:
@@ -199,12 +212,12 @@ def handle_process():
         text_to_process = data.get('text_to_process', '').strip()
 
         # --- Input Validation ---
-        if not model: return jsonify({"error": "Model not selected."}), 400
-        if not split_method: return jsonify({"error": "Split method not selected."}), 400
-        if not prompt: return jsonify({"error": "Prompt is required."}), 400
-        if not text_to_process: return jsonify({"error": "Text to process is required."}), 400
+        if not model: return jsonify({"error": "Model not selected.", "key_status": key_load_summary}), 400
+        if not split_method: return jsonify({"error": "Split method not selected.", "key_status": key_load_summary}), 400
+        if not prompt: return jsonify({"error": "Prompt is required.", "key_status": key_load_summary}), 400
+        if not text_to_process: return jsonify({"error": "Text to process is required.", "key_status": key_load_summary}), 400
         if split_method == "Theo số ký tự/từ" and (not isinstance(split_length, int) or split_length <= 0):
-             return jsonify({"error": "Invalid split length for selected method."}), 400
+             return jsonify({"error": "Invalid split length for selected method.", "key_status": key_load_summary}), 400
 
         print(f"Received request: Model={model}, Lang={language}, Split={split_method}, Len={split_length if split_method == 'Theo số ký tự/từ' else 'N/A'}")
 
@@ -215,7 +228,7 @@ def handle_process():
         print(f"Text split into {total_parts} parts.")
 
         if total_parts == 0:
-            return jsonify({"error": "Text could not be split into processable parts."}), 400
+            return jsonify({"error": "Text could not be split into processable parts.", "key_status": key_load_summary}), 400
 
         # --- Process each part sequentially ---
         all_results = []
@@ -226,10 +239,12 @@ def handle_process():
             part_start_time = time.time()
             print(f"--- Processing Part {i}/{total_parts} ---")
 
-            # --- Select API Key ---
+            # --- Select API Key (using the VALID_API_KEYS list loaded earlier) ---
             key_index = (i - 1) % num_available_keys
             current_api_key = VALID_API_KEYS[key_index]
-            key_log_name = f"Key #{key_index + 1}"
+            # Find original name for logging (e.g., KEY1, KEY3) - less efficient but better logging
+            current_key_name = list(loaded_keys.keys())[list(loaded_keys.values()).index(current_api_key)]
+            key_log_name = f"{current_key_name} (#{key_index + 1} in valid list)"
             print(f"Using {key_log_name}")
 
             # --- Prepare API Call ---
@@ -238,13 +253,11 @@ def handle_process():
                 "Authorization": f"Bearer {current_api_key}",
                 "Content-Type": "application/json",
                 "HTTP-Referer": "https://YOUR_NETLIFY_SITE_NAME.netlify.app/", # Optional: Set your site URL
-                "X-Title": "Netlify OpenRouter Client v1.0"
+                "X-Title": "Netlify OpenRouter Client v1.1" # Version Bump
             }
             payload = {
                 "model": model,
                 "messages": [{"role": "user", "content": full_prompt}]
-                # Add other parameters like max_tokens if needed
-                # "max_tokens": 8000,
             }
 
             # --- Make API Request ---
@@ -259,6 +272,7 @@ def handle_process():
                 print(f"Part {i} API call duration: {part_api_time:.2f}s, Status: {response.status_code}")
 
                 # --- Handle API Response ---
+                # ... (Keep the response handling logic exactly as it was before) ...
                 if response.status_code == 200:
                     try:
                         result_json = response.json()
@@ -309,7 +323,6 @@ def handle_process():
                     print(f"ERROR: {err_msg}")
                     errors_occurred.append(err_msg)
                     all_results.append(f"## Part {i}/{total_parts} (ERROR: API Call Failed {response.status_code})\n{err_msg}\n")
-                    # No automatic retry or wait implemented here - could add if needed, but increases timeout risk
 
             # --- Handle Request Exceptions (Network, Timeout) ---
             except requests.exceptions.RequestException as req_err:
@@ -319,52 +332,48 @@ def handle_process():
                  print(traceback.format_exc())
                  errors_occurred.append(err_msg)
                  all_results.append(f"## Part {i}/{total_parts} (ERROR: Request Failed)\n{err_msg}\n")
-                 # Stop processing further parts if a network error occurs? Or continue? Currently continues.
 
-
-            # Check for Netlify timeout approaching (heuristic) - This is unreliable!
+            # Check for Netlify timeout approaching (heuristic)
             elapsed_total = time.time() - start_time_total
-            # Netlify standard timeout is often 10s or 26s depending on plan/settings. Let's use 8s as a safety margin.
-            if elapsed_total > 8.0 and i < total_parts:
+            if elapsed_total > 8.0 and i < total_parts: # Using 8s margin before typical 10s timeout
                 timeout_msg = f"Warning: Processing potentially timed out after {elapsed_total:.1f}s at part {i}/{total_parts}. Returning partial results."
                 print(timeout_msg)
                 errors_occurred.append(timeout_msg)
                 all_results.append(f"## PROCESSING STOPPED (Timeout Risk)\n{timeout_msg}\n")
                 break # Stop processing more parts
 
+
         # --- Combine Results ---
         final_result_text = "\n".join(all_results)
         total_duration = time.time() - start_time_total
         print(f"Finished processing all parts in {total_duration:.2f} seconds.")
 
+        response_payload = {
+            "result": final_result_text,
+            "key_status": key_load_summary # Include key status in response
+        }
+
         if errors_occurred:
-            print(f"Completed with {len(errors_occurred)} error(s):")
-            for err in errors_occurred: print(f"- {err}")
-            # Maybe return a different status code or flag in response if errors occurred?
-            # For simplicity, returning 200 but including errors in the result text.
-            return jsonify({"result": final_result_text, "status": "Completed with errors."})
+            print(f"Completed with {len(errors_occurred)} error(s).")
+            response_payload["status"] = "Completed with errors."
+            # Still return 200 OK, as processing attempted/partially completed
+            return jsonify(response_payload), 200
         else:
-            return jsonify({"result": final_result_text, "status": "Completed successfully."})
+            response_payload["status"] = "Completed successfully."
+            return jsonify(response_payload), 200
 
     # --- Handle Outer Exceptions (Validation, Splitting) ---
     except ValueError as ve:
          print(f"Value Error: {ve}")
          print(traceback.format_exc())
-         return jsonify({"error": str(ve)}), 400
+         # Include key status even in validation errors if available
+         return jsonify({"error": str(ve), "key_status": key_load_summary}), 400
     except Exception as e:
         print(f"Unhandled exception in handle_process: {e}")
         print(traceback.format_exc())
-        return jsonify({"error": "An unexpected server error occurred."}), 500
+        # Include key status even in unexpected errors if available
+        return jsonify({"error": "An unexpected server error occurred.", "key_status": key_load_summary}), 500
 
-
-# --- For Local Testing (optional) ---
-# You can run this script directly using `python process.py`
-# and test the endpoint using tools like curl or Postman
-# Make sure to set dummy environment variables locally if you do this.
-# Example: export KEY1='sk-...'
+# --- Local Testing ---
 # if __name__ == '__main__':
-#     print("Attempting to run Flask app locally on port 5000...")
-#     if not VALID_API_KEYS:
-#         print("\nWARNING: No API keys found in environment variables (KEY1-KEY4).")
-#         print("Set them using 'export KEY1=...' before running locally for API calls to work.\n")
-#     app.run(debug=True, port=5000) # debug=True provides auto-reload and more error details
+#     # ... (local testing code unchanged) ...

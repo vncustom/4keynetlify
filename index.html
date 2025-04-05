@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenRouter AI Interface</title>
+    <style>
+        body { font-family: sans-serif; line-height: 1.6; padding: 20px; max-width: 900px; margin: auto; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        select, textarea, input[type="number"], button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 5px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        textarea { height: 100px; resize: vertical; }
+        #additional_text { height: 200px; }
+        button { background-color: #28a745; color: white; border: none; cursor: pointer; font-size: 1em; }
+        button:hover { background-color: #218838; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        .output-area {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #eee;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+            white-space: pre-wrap; /* Preserve line breaks */
+            word-wrap: break-word; /* Wrap long lines */
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .status { font-style: italic; color: #555; }
+        .error { color: red; font-weight: bold; }
+        .split-length-group { display: none; /* Hidden by default */ }
+    </style>
+</head>
+<body>
+
+    <h1>OpenRouter AI Interface (Netlify)</h1>
+    <p><i>Enter your prompt and text, select options, and submit. Results will appear below.</i></p>
+
+    <form id="process-form">
+        <div class="form-group">
+            <label for="language">Language:</label>
+            <select id="language" name="language">
+                <option value="中文">中文</option>
+                <option value="ENG">ENG</option>
+                <option value="Việt Nam">Việt Nam</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="model">Model:</label>
+            <select id="model" name="model">
+                </select>
+        </div>
+
+        <div class="form-group">
+            <label for="split_method">Split Text Method:</label>
+            <select id="split_method" name="split_method">
+                <option value="Theo chương (第X章/Chương X)">Theo chương (第X章/Chương X)</option>
+                <option value="Theo số ký tự/từ">Theo số ký tự/từ</option>
+            </select>
+        </div>
+
+        <div class="form-group split-length-group" id="split-length-group">
+            <label for="split_length" id="split_length_label">Số ký tự mỗi phần:</label>
+            <input type="number" id="split_length" name="split_length" value="15000" min="1">
+        </div>
+
+        <div class="form-group">
+            <label for="prompt_text">Prompt:</label>
+            <textarea id="prompt_text" name="prompt_text">Bạn là một trợ lý dịch thuật truyện chuyên nghiệp. Hãy dịch đoạn văn bản sau sang tiếng Việt một cách tự nhiên, phù hợp với ngữ cảnh và văn phong của truyện. Giữ nguyên các tên riêng, địa danh.
+---
+</textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="additional_text">Text to Process:</label>
+            <textarea id="additional_text" name="additional_text" placeholder="Paste the text to process here..."></textarea>
+        </div>
+
+        <button type="submit" id="submit-button">Submit Request</button>
+    </form>
+
+    <div class="form-group">
+        <label>Status:</label>
+        <div id="status-output" class="output-area status">Ready.</div>
+    </div>
+
+    <div class="form-group">
+        <label>Results:</label>
+        <div id="result-output" class="output-area">Results will appear here...</div>
+    </div>
+
+    <script>
+        const models = [
+            "google/gemini-2.5-pro-exp-03-25:free",
+            "google/gemini-2.0-flash-lite-preview-02-05:free",
+            "google/gemini-2.0-pro-exp-02-05:free",
+            "google/gemini-2.0-flash-thinking-exp:free",
+            "google/gemini-2.0-flash-exp:free",
+            "deepseek/deepseek-chat-v3-0324:free",
+            "deepseek/deepseek-r1-zero:free",
+            "deepseek/deepseek-chat:free",
+            "deepseek/deepseek-r1:free",
+            "qwen/qwq-32b:free",
+            "qwen/qwen2.5-vl-72b-instruct:free"
+        ].sort();
+
+        const modelSelect = document.getElementById('model');
+        const defaultModel = "google/gemini-2.0-flash-lite-preview-02-05:free";
+        models.forEach(modelName => {
+            const option = document.createElement('option');
+            option.value = modelName;
+            option.textContent = modelName;
+            if (modelName === defaultModel) {
+                option.selected = true;
+            }
+            modelSelect.appendChild(option);
+        });
+
+        const form = document.getElementById('process-form');
+        const submitButton = document.getElementById('submit-button');
+        const statusOutput = document.getElementById('status-output');
+        const resultOutput = document.getElementById('result-output');
+        const languageSelect = document.getElementById('language');
+        const splitMethodSelect = document.getElementById('split_method');
+        const splitLengthGroup = document.getElementById('split-length-group');
+        const splitLengthLabel = document.getElementById('split_length_label');
+        const splitLengthInput = document.getElementById('split_length');
+        const promptText = document.getElementById('prompt_text');
+        const additionalText = document.getElementById('additional_text');
+
+        function updateSplitLengthLabel() {
+            const lang = languageSelect.value;
+            if (lang === "ENG") {
+                splitLengthLabel.textContent = "Words per part:";
+            } else if (lang === "中文") {
+                splitLengthLabel.textContent = "每部分字符数:";
+            } else { // Việt Nam
+                splitLengthLabel.textContent = "Số ký tự mỗi phần:";
+            }
+        }
+
+        function toggleSplitLengthInput() {
+             if (splitMethodSelect.value === "Theo số ký tự/từ") {
+                splitLengthGroup.style.display = 'block';
+             } else {
+                splitLengthGroup.style.display = 'none';
+             }
+        }
+
+        languageSelect.addEventListener('change', updateSplitLengthLabel);
+        splitMethodSelect.addEventListener('change', toggleSplitLengthInput);
+
+        // Initial setup
+        updateSplitLengthLabel();
+        toggleSplitLengthInput();
+
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault(); // Prevent default form submission
+
+            // Basic Validation
+            if (!promptText.value.trim()) {
+                statusOutput.textContent = 'Error: Prompt cannot be empty.';
+                statusOutput.className = 'output-area error';
+                return;
+            }
+            if (!additionalText.value.trim()) {
+                statusOutput.textContent = 'Error: Text to process cannot be empty.';
+                statusOutput.className = 'output-area error';
+                return;
+            }
+             if (splitMethodSelect.value === "Theo số ký tự/từ" && (!splitLengthInput.value || parseInt(splitLengthInput.value) <= 0)) {
+                statusOutput.textContent = 'Error: Invalid number for characters/words per part.';
+                statusOutput.className = 'output-area error';
+                return;
+            }
+
+
+            submitButton.disabled = true;
+            statusOutput.textContent = 'Processing... Please wait. This might take a while depending on the text length and model.';
+            statusOutput.className = 'output-area status';
+            resultOutput.textContent = ''; // Clear previous results
+
+            const formData = {
+                language: languageSelect.value,
+                model: modelSelect.value,
+                split_method: splitMethodSelect.value,
+                split_length: parseInt(splitLengthInput.value) || 15000, // Send 0 if not applicable? Or default?
+                prompt: promptText.value,
+                text_to_process: additionalText.value
+            };
+
+            try {
+                // Make API call to the Netlify Function endpoint
+                // Adjust the endpoint '/api/process' if your function is named differently or in a different path
+                const response = await fetch('/api/process', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData),
+                });
+
+                const data = await response.json(); // Always try to parse JSON
+
+                if (!response.ok) {
+                    // Handle HTTP errors (e.g., 4xx, 5xx)
+                     throw new Error(data.error || `Request failed with status ${response.status}`);
+                }
+
+                // Success
+                statusOutput.textContent = 'Processing complete!';
+                statusOutput.className = 'output-area status success'; // Add a success class if desired
+                resultOutput.textContent = data.result || 'No content returned.';
+
+
+            } catch (error) {
+                console.error("Fetch error:", error);
+                statusOutput.textContent = `Error: ${error.message}`;
+                statusOutput.className = 'output-area error';
+                resultOutput.textContent = 'An error occurred. Please check the status message.';
+            } finally {
+                submitButton.disabled = false; // Re-enable button
+            }
+        });
+
+    </script>
+
+</body>
+</html>

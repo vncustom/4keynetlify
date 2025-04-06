@@ -30,7 +30,7 @@ def load_api_keys():
     
     for i in range(1, 5):
         key_name = f"KEY{i}"
-        key_value = os.environ.get(key_name)
+        key_value = os.getenv(key_name)
         
         if key_value and key_value.strip():
             keys.append(key_value.strip())

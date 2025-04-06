@@ -1,14 +1,17 @@
 [build]
-  command = "# no build command"
+  # Directory containing your index.html (relative to root)
+  # If index.html is in the root, use "."
   publish = "."
+  # Directory containing your serverless functions (relative to root)
+  functions = "netlify/functions"
 
 [functions]
-  directory = "functions"
+  # Ensure Netlify knows it's Python. Often auto-detected, but explicit is good.
+  # Check Netlify docs for the current correct identifier if needed.
+  # node_bundler = "esbuild" # This might not be needed for Python
 
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-
-[dev]
-  framework = "#static"
+# Optional: Redirect rule to ensure the API path works cleanly
+#[[redirects]]
+#  from = "/api/*"
+#  to = "/.netlify/functions/:splat"
+#  status = 200

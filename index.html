@@ -5,584 +5,248 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OpenRouter AI Interface</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        .container {
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-        .row {
-            display: flex;
-            margin-bottom: 15px;
-            flex-wrap: wrap;
-        }
-        .col {
-            flex: 1;
-            min-width: 200px;
-            margin-right: 15px;
-        }
-        .full-width {
+        body { font-family: sans-serif; line-height: 1.6; padding: 20px; max-width: 900px; margin: auto; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        select, textarea, input[type="number"], button {
             width: 100%;
-        }
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        select, input, textarea, button {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-        textarea {
-            min-height: 100px;
-            resize: vertical;
-        }
-        #additionalText {
-            min-height: 200px;
-        }
-        button {
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            cursor: pointer;
-            margin-right: 10px;
-        }
-        button:disabled {
-            background-color: #cccccc;
-            cursor: not-allowed;
-        }
-        #stopButton {
-            background-color: #f44336;
-        }
-        #loadButton {
-            background-color: #2196F3;
-        }
-        .progress-container {
-            width: 100%;
-            background-color: #f1f1f1;
-            border-radius: 4px;
-            margin-bottom: 10px;
-        }
-        .progress-bar {
-            height: 20px;
-            border-radius: 4px;
-            text-align: center;
-            line-height: 20px;
-            color: white;
-        }
-        .progress-info {
-            background-color: #2196F3;
-        }
-        .progress-success {
-            background-color: #4CAF50;
-        }
-        .progress-warning {
-            background-color: #ff9800;
-        }
-        .progress-danger {
-            background-color: #f44336;
-        }
-        .output {
-            min-height: 100px;
             padding: 10px;
-            border: 1px solid #ddd;
+            margin-bottom: 5px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
             border-radius: 4px;
+        }
+        textarea { height: 100px; resize: vertical; }
+        #additional_text { height: 200px; }
+        button { background-color: #28a745; color: white; border: none; cursor: pointer; font-size: 1em; }
+        button:hover { background-color: #218838; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        .output-area {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #eee;
             background-color: #f9f9f9;
-            white-space: pre-wrap;
+            border-radius: 4px;
+            white-space: pre-wrap; /* Preserve line breaks */
+            word-wrap: break-word; /* Wrap long lines */
+            max-height: 400px;
             overflow-y: auto;
-            margin-bottom: 10px;
         }
-        .tabs {
-            display: flex;
-            border-bottom: 1px solid #ddd;
-            margin-bottom: 10px;
-        }
-        .tab {
-            padding: 10px 15px;
-            cursor: pointer;
-            border: 1px solid transparent;
-            border-bottom: none;
-        }
-        .tab.active {
-            background-color: #f9f9f9;
-            border-color: #ddd;
-            border-radius: 4px 4px 0 0;
-        }
-        .tab-content {
-            display: none;
-        }
-        .tab-content.active {
-            display: block;
-        }
+        .status { font-style: italic; color: #555; }
+        .error { color: red; font-weight: bold; }
+        .split-length-group { display: none; /* Hidden by default */ }
     </style>
 </head>
 <body>
-    <h1>OpenRouter AI Interface (Netlify) v1.0</h1>
-    <p><i>Uses API Keys from Netlify environment variables, processes text and saves results.</i></p>
-    
-    <div class="row">
-        <div class="col">
+
+    <h1>OpenRouter AI Interface (Netlify)</h1>
+    <p><i>Enter your prompt and text, select options, and submit. Results will appear below.</i></p>
+
+    <form id="process-form">
+        <div class="form-group">
             <label for="language">Language:</label>
-            <select id="language">
-                <option value="ENG">ENG</option>
+            <select id="language" name="language">
                 <option value="中文">中文</option>
-                <option value="Việt Nam" selected>Việt Nam</option>
+                <option value="ENG">ENG</option>
+                <option value="Việt Nam">Việt Nam</option>
             </select>
         </div>
-        <div class="col">
+
+        <div class="form-group">
             <label for="model">Model:</label>
-            <select id="model">
-                <option value="google/gemini-2.5-pro-exp-03-25:free">google/gemini-2.5-pro-exp-03-25:free</option>
-                <option value="google/gemini-2.0-flash-lite-preview-02-05:free" selected>google/gemini-2.0-flash-lite-preview-02-05:free</option>
-                <option value="google/gemini-2.0-pro-exp-02-05:free">google/gemini-2.0-pro-exp-02-05:free</option>
-                <option value="google/gemini-2.0-flash-thinking-exp:free">google/gemini-2.0-flash-thinking-exp:free</option>
-                <option value="google/gemini-2.0-flash-exp:free">google/gemini-2.0-flash-exp:free</option>
-                <option value="deepseek/deepseek-chat-v3-0324:free">deepseek/deepseek-chat-v3-0324:free</option>
-                <option value="deepseek/deepseek-r1-zero:free">deepseek/deepseek-r1-zero:free</option>
-                <option value="deepseek/deepseek-chat:free">deepseek/deepseek-chat:free</option>
-                <option value="deepseek/deepseek-r1:free">deepseek/deepseek-r1:free</option>
-                <option value="qwen/qwq-32b:free">qwen/qwq-32b:free</option>
-                <option value="qwen/qwen2.5-vl-72b-instruct:free">qwen/qwen2.5-vl-72b-instruct:free</option>
+            <select id="model" name="model">
+                </select>
+        </div>
+
+        <div class="form-group">
+            <label for="split_method">Split Text Method:</label>
+            <select id="split_method" name="split_method">
+                <option value="Theo chương (第X章/Chương X)">Theo chương (第X章/Chương X)</option>
+                <option value="Theo số ký tự/từ">Theo số ký tự/từ</option>
             </select>
         </div>
-    </div>
-    
-    <div class="container">
-        <h3>API Key Status</h3>
-        <div id="apiKeyOutput" class="output"></div>
-    </div>
-    
-    <div class="container">
-        <h3>Text Split Configuration</h3>
-        <div class="row">
-            <div class="col">
-                <label for="splitMethod">Split Method:</label>
-                <select id="splitMethod">
-                    <option value="chapter" selected>Theo chương (第X章/Chương X)</option>
-                    <option value="character">Theo số ký tự/từ</option>
-                </select>
-            </div>
-            <div class="col">
-                <label id="splitLengthLabel">Số ký tự mỗi phần:</label>
-                <input type="number" id="splitLength" value="15000" min="1">
-            </div>
+
+        <div class="form-group split-length-group" id="split-length-group">
+            <label for="split_length" id="split_length_label">Số ký tự mỗi phần:</label>
+            <input type="number" id="split_length" name="split_length" value="15000" min="1">
         </div>
-    </div>
-    
-    <div class="container">
-        <h3>Inputs</h3>
-        <label for="promptText">Prompt:</label>
-        <textarea id="promptText">Bạn là một trợ lý dịch thuật truyện chuyên nghiệp. Hãy dịch đoạn văn bản sau sang tiếng Việt một cách tự nhiên, phù hợp với ngữ cảnh và văn phong của truyện. Giữ nguyên các tên riêng, địa danh.
+
+        <div class="form-group">
+            <label for="prompt_text">Prompt:</label>
+            <textarea id="prompt_text" name="prompt_text">Bạn là một trợ lý dịch thuật truyện chuyên nghiệp. Hãy dịch đoạn văn bản sau sang tiếng Việt một cách tự nhiên, phù hợp với ngữ cảnh và văn phong của truyện. Giữ nguyên các tên riêng, địa danh.
 ---
 </textarea>
-        
-        <label for="additionalText">Text to Process:</label>
-        <textarea id="additionalText" placeholder="Dán văn bản cần xử lý (ví dụ: nội dung truyện) vào đây..."></textarea>
-    </div>
-    
-    <div class="row">
-        <button id="submitButton">Gửi yêu cầu</button>
-        <button id="stopButton" disabled>Dừng</button>
-        <button id="loadButton" disabled>Tải kết quả mới nhất</button>
-    </div>
-    
-    <hr>
-    <h3>Outputs</h3>
-    
-    <div class="tabs">
-        <div class="tab active" data-tab="progress">Tiến trình</div>
-        <div class="tab" data-tab="result">Kết quả hiện tại</div>
-        <div class="tab" data-tab="error">Lỗi</div>
-        <div class="tab" data-tab="debug">Debug Logs</div>
-    </div>
-    
-    <div class="tab-content active" id="progressTab">
-        <div class="progress-container">
-            <div id="progressBar" class="progress-bar progress-info" style="width: 0%">0%</div>
         </div>
-        <div id="progressOutput" class="output"></div>
-        <div id="completionOutput" class="output"></div>
+
+        <div class="form-group">
+            <label for="additional_text">Text to Process:</label>
+            <textarea id="additional_text" name="additional_text" placeholder="Paste the text to process here..."></textarea>
+        </div>
+
+        <button type="submit" id="submit-button">Submit Request</button>
+    </form>
+
+    <div class="form-group">
+        <label>Status:</label>
+        <div id="status-output" class="output-area status">Ready.</div>
     </div>
-    
-    <div class="tab-content" id="resultTab">
-        <div id="resultOutput" class="output"></div>
-    </div>
-    
-    <div class="tab-content" id="errorTab">
-        <div id="errorOutput" class="output"></div>
-    </div>
-    
-    <div class="tab-content" id="debugTab">
-        <div id="debugOutput" class="output"></div>
+
+    <div class="form-group">
+        <label>Results:</label>
+        <div id="result-output" class="output-area">Results will appear here...</div>
     </div>
 
     <script>
-        // Global variables
-        let processing = false;
-        let shouldStop = false;
-        let resultFilePath = null;
-        let apiKeys = [];
-        
-        // DOM elements
-        const elements = {
-            language: document.getElementById('language'),
-            model: document.getElementById('model'),
-            splitMethod: document.getElementById('splitMethod'),
-            splitLengthLabel: document.getElementById('splitLengthLabel'),
-            splitLength: document.getElementById('splitLength'),
-            promptText: document.getElementById('promptText'),
-            additionalText: document.getElementById('additionalText'),
-            submitButton: document.getElementById('submitButton'),
-            stopButton: document.getElementById('stopButton'),
-            loadButton: document.getElementById('loadButton'),
-            progressBar: document.getElementById('progressBar'),
-            apiKeyOutput: document.getElementById('apiKeyOutput'),
-            progressOutput: document.getElementById('progressOutput'),
-            resultOutput: document.getElementById('resultOutput'),
-            completionOutput: document.getElementById('completionOutput'),
-            errorOutput: document.getElementById('errorOutput'),
-            debugOutput: document.getElementById('debugOutput')
-        };
-        
-        // Initialize tabs
-        document.querySelectorAll('.tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                
-                tab.classList.add('active');
-                document.getElementById(`${tab.dataset.tab}Tab`).classList.add('active');
-            });
+        const models = [
+            "google/gemini-2.5-pro-exp-03-25:free",
+            "google/gemini-2.0-flash-lite-preview-02-05:free",
+            "google/gemini-2.0-pro-exp-02-05:free",
+            "google/gemini-2.0-flash-thinking-exp:free",
+            "google/gemini-2.0-flash-exp:free",
+            "deepseek/deepseek-chat-v3-0324:free",
+            "deepseek/deepseek-r1-zero:free",
+            "deepseek/deepseek-chat:free",
+            "deepseek/deepseek-r1:free",
+            "qwen/qwq-32b:free",
+            "qwen/qwen2.5-vl-72b-instruct:free"
+        ].sort();
+
+        const modelSelect = document.getElementById('model');
+        const defaultModel = "google/gemini-2.0-flash-lite-preview-02-05:free";
+        models.forEach(modelName => {
+            const option = document.createElement('option');
+            option.value = modelName;
+            option.textContent = modelName;
+            if (modelName === defaultModel) {
+                option.selected = true;
+            }
+            modelSelect.appendChild(option);
         });
-        
-        // Update split length label based on language
-        elements.language.addEventListener('change', updateSplitLengthLabel);
-        
+
+        const form = document.getElementById('process-form');
+        const submitButton = document.getElementById('submit-button');
+        const statusOutput = document.getElementById('status-output');
+        const resultOutput = document.getElementById('result-output');
+        const languageSelect = document.getElementById('language');
+        const splitMethodSelect = document.getElementById('split_method');
+        const splitLengthGroup = document.getElementById('split-length-group');
+        const splitLengthLabel = document.getElementById('split_length_label');
+        const splitLengthInput = document.getElementById('split_length');
+        const promptText = document.getElementById('prompt_text');
+        const additionalText = document.getElementById('additional_text');
+
+
         function updateSplitLengthLabel() {
-            const lang = elements.language.value;
+            const lang = languageSelect.value;
             if (lang === "ENG") {
-                elements.splitLengthLabel.textContent = "Words per part:";
+                splitLengthLabel.textContent = "Words per part:";
             } else if (lang === "中文") {
-                elements.splitLengthLabel.textContent = "每部分字符数:";
+                splitLengthLabel.textContent = "每部分字符数:";
             } else { // Việt Nam
-                elements.splitLengthLabel.textContent = "Số ký tự mỗi phần:";
+                splitLengthLabel.textContent = "Số ký tự mỗi phần:";
             }
         }
-        
-        // Initialize UI
-        function init() {
-            updateSplitLengthLabel();
-            loadApiKeys();
-            
-            // Event listeners
-            elements.submitButton.addEventListener('click', startProcessing);
-            elements.stopButton.addEventListener('click', stopProcessing);
-            elements.loadButton.addEventListener('click', loadResults);
+
+        function toggleSplitLengthInput() {
+             if (splitMethodSelect.value === "Theo số ký tự/từ") {
+                splitLengthGroup.style.display = 'block';
+             } else {
+                splitLengthGroup.style.display = 'none';
+             }
         }
-        
-        // Load API keys from server
-        async function loadApiKeys() {
-            showMessage(elements.apiKeyOutput, "Đang kiểm tra các API Keys từ cấu hình Netlify...", true);
-            
-            try {
-                const response = await fetch('/.netlify/functions/check-keys');
-                if (!response.ok) {
-                    throw new Error(`Server error: ${response.status}`);
-                }
-                
-                const data = await response.json();
-                apiKeys = data.validKeys || [];
-                
-                elements.apiKeyOutput.innerHTML = '';
-                data.messages.forEach(msg => {
-                    elements.apiKeyOutput.innerHTML += msg + '<br>';
-                });
-                
-                elements.apiKeyOutput.innerHTML += `<hr>🔑 Tổng cộng ${apiKeys.length} API Key hợp lệ sẽ được sử dụng luân phiên.`;
-            } catch (error) {
-                showError(`Lỗi khi kiểm tra API keys: ${error.message}`);
-            }
-        }
-        
-        // Show message in specified output element
-        function showMessage(outputElement, message, clear = false) {
-            if (clear) {
-                outputElement.innerHTML = '';
-            }
-            const timestamp = new Date().toTimeString().split(' ')[0];
-            outputElement.innerHTML += `[${timestamp}] ${message}<br>`;
-            outputElement.scrollTop = outputElement.scrollHeight;
-        }
-        
-        // Show error message
-        function showError(message, clear = false) {
-            showMessage(elements.errorOutput, `❌ ERROR: ${message}`, clear);
-            showMessage(elements.debugOutput, `ERROR reported: ${message}`, false);
-        }
-        
-        // Show debug message
-        function showDebug(message) {
-            showMessage(elements.debugOutput, `DEBUG: ${message}`, false);
-        }
-        
-        // Validate inputs before processing
-        function validateInputs() {
-            elements.errorOutput.innerHTML = '';
-            const errors = [];
-            
-            if (apiKeys.length === 0) {
-                errors.push("Không tìm thấy API Key hợp lệ nào từ cấu hình Netlify. Không thể tiếp tục.");
-                return errors;
-            }
-            
-            if (!elements.promptText.value.trim()) {
-                errors.push("Prompt không được để trống.");
-            }
-            
-            if (!elements.additionalText.value.trim()) {
-                errors.push("Văn bản cần xử lý không được để trống.");
-            }
-            
-            if (!elements.model.value) {
-                errors.push("Vui lòng chọn một Model.");
-            }
-            
-            if (elements.splitMethod.value === "character") {
-                const splitLen = parseInt(elements.splitLength.value);
-                if (isNaN(splitLen) || splitLen <= 0) {
-                    errors.push("Số ký tự/số từ mỗi phần phải lớn hơn 0.");
-                } else if (splitLen > 100000) {
-                    showMessage(elements.errorOutput, `⚠️ Cảnh báo: Số ký tự/từ (${splitLen}) rất lớn. Đảm bảo model hỗ trợ context dài như vậy.`, false);
-                }
-            }
-            
-            return errors;
-        }
-        
-        // Start processing the request
-        async function startProcessing() {
-            if (processing) {
-                showMessage(elements.completionOutput, "⚠️ Một yêu cầu đang được xử lý. Vui lòng đợi.", true);
+
+        languageSelect.addEventListener('change', updateSplitLengthLabel);
+        splitMethodSelect.addEventListener('change', toggleSplitLengthInput);
+
+        // Initial setup
+        updateSplitLengthLabel();
+        toggleSplitLengthInput();
+
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault(); // Prevent default form submission
+
+            // Basic Validation
+             if (!promptText.value.trim()) {
+                statusOutput.textContent = 'Error: Prompt cannot be empty.';
+                statusOutput.className = 'output-area error';
+                resultOutput.textContent = '';
                 return;
             }
-            
-            // Clear all outputs
-            elements.progressOutput.innerHTML = '';
-            elements.resultOutput.innerHTML = '';
-            elements.completionOutput.innerHTML = '';
-            elements.errorOutput.innerHTML = '';
-            elements.debugOutput.innerHTML = '';
-            
-            showMessage(elements.completionOutput, "Bắt đầu kiểm tra đầu vào...", true);
-            
-            const errors = validateInputs();
-            if (errors.length > 0) {
-                elements.errorOutput.innerHTML = "Vui lòng sửa các lỗi sau trước khi gửi:<br>";
-                errors.forEach(error => {
-                    elements.errorOutput.innerHTML += `- ${error}<br>`;
-                });
-                showMessage(elements.completionOutput, "❌ Kiểm tra đầu vào thất bại.", true);
-                elements.loadButton.disabled = !(resultFilePath != null);
-                return;
+            if (!additionalText.value.trim()) {
+                statusOutput.textContent = 'Error: Text to process cannot be empty.';
+                statusOutput.className = 'output-area error';
+                 resultOutput.textContent = '';
+               return;
             }
-            
-            // Start processing
-            processing = true;
-            shouldStop = false;
-            elements.submitButton.disabled = true;
-            elements.stopButton.disabled = false;
-            elements.loadButton.disabled = true;
-            elements.progressBar.style.width = '0%';
-            elements.progressBar.textContent = '0%';
-            elements.progressBar.className = 'progress-bar progress-info';
-            resultFilePath = null;
-            
-            showMessage(elements.completionOutput, "✅ Đầu vào hợp lệ. Bắt đầu xử lý...", true);
-            showDebug("Starting processing request...");
-            
+             if (splitMethodSelect.value === "Theo số ký tự/từ" && (!splitLengthInput.value || parseInt(splitLengthInput.value) <= 0)) {
+                statusOutput.textContent = 'Error: Invalid number for characters/words per part.';
+                statusOutput.className = 'output-area error';
+                 resultOutput.textContent = '';
+               return;
+            }
+
+
+            submitButton.disabled = true;
+            statusOutput.textContent = 'Processing... Contacting backend function...';
+            statusOutput.className = 'output-area status';
+            resultOutput.textContent = ''; // Clear previous results
+
+            const formData = {
+                language: languageSelect.value,
+                model: modelSelect.value,
+                split_method: splitMethodSelect.value,
+                split_length: parseInt(splitLengthInput.value) || 15000,
+                prompt: promptText.value,
+                text_to_process: additionalText.value
+            };
+
+            let keyStatusInfo = "Key status not reported by backend."; // Default message
+
             try {
-                const requestData = {
-                    language: elements.language.value,
-                    model: elements.model.value,
-                    splitMethod: elements.splitMethod.value,
-                    splitLength: parseInt(elements.splitLength.value),
-                    promptText: elements.promptText.value,
-                    additionalText: elements.additionalText.value
-                };
-                
-                const response = await fetch('/.netlify/functions/process-text', {
+                const response = await fetch('/api/process', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify(requestData)
+                    body: JSON.stringify(formData),
                 });
-                
+
+                const data = await response.json(); // Always try to parse JSON, even for errors
+
+                // Store key status if provided in the response
+                if (data && data.key_status) {
+                     keyStatusInfo = `API Key Status: [ ${data.key_status} ]`;
+                }
+
                 if (!response.ok) {
-                    throw new Error(`Server error: ${response.status}`);
+                    // Handle HTTP errors (e.g., 4xx, 5xx)
+                    let errorMsg = data.error || `Request failed with status ${response.status}`;
+                    throw new Error(errorMsg); // Throw error to be caught below
                 }
-                
-                // Setup SSE connection to receive updates from the server
-                const processId = await response.text();
-                connectToSSE(processId);
-                
+
+                // --- Success ---
+                let overallStatus = data.status || 'Processing complete!'; // Get overall status if provided
+                statusOutput.textContent = `${overallStatus}\n${keyStatusInfo}`; // Combine overall status and key status
+                statusOutput.className = 'output-area status';
+                if (overallStatus.includes("error")) { // Make status visually an error if backend reported partial errors
+                     statusOutput.className = 'output-area error';
+                }
+                resultOutput.textContent = data.result || 'No content returned.';
+
+
             } catch (error) {
-                showError(`Failed to start processing: ${error.message}`);
-                finishProcessing(false);
+                console.error("Fetch error:", error);
+                // Display error and include any key status info we might have gotten before the error
+                statusOutput.textContent = `Error: ${error.message}\n${keyStatusInfo}`;
+                statusOutput.className = 'output-area error';
+                resultOutput.textContent = 'An error occurred. Please check the status message.';
+            } finally {
+                submitButton.disabled = false; // Re-enable button
             }
-        }
-        
-        // Connect to Server-Sent Events to receive processing updates
-        function connectToSSE(processId) {
-            showDebug(`Connecting to SSE for process ID: ${processId}`);
-            
-            const eventSource = new EventSource(`/.netlify/functions/process-updates?id=${processId}`);
-            
-            eventSource.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                handleSSEUpdate(data, eventSource);
-            };
-            
-            eventSource.onerror = (error) => {
-                showError(`SSE connection error: ${error.type}`);
-                eventSource.close();
-                finishProcessing(false);
-            };
-        }
-        
-        // Handle SSE updates from the server
-        function handleSSEUpdate(data, eventSource) {
-            switch (data.type) {
-                case 'progress':
-                    updateProgress(data.current, data.total);
-                    break;
-                    
-                case 'message':
-                    showMessage(getOutputElement(data.outputType), data.message, data.clear || false);
-                    break;
-                    
-                case 'result':
-                    resultFilePath = data.filePath;
-                    showMessage(elements.resultOutput, `Current result:\n${data.content}`, true);
-                    break;
-                    
-                case 'complete':
-                    eventSource.close();
-                    finishProcessing(data.success);
-                    break;
-                    
-                case 'error':
-                    showError(data.message);
-                    if (data.fatal) {
-                        eventSource.close();
-                        finishProcessing(false);
-                    }
-                    break;
-            }
-        }
-        
-        // Get the appropriate output element based on type
-        function getOutputElement(type) {
-            switch (type) {
-                case 'progress': return elements.progressOutput;
-                case 'result': return elements.resultOutput;
-                case 'completion': return elements.completionOutput;
-                case 'error': return elements.errorOutput;
-                case 'debug': return elements.debugOutput;
-                default: return elements.progressOutput;
-            }
-        }
-        
-        // Update progress bar
-        function updateProgress(current, total) {
-            const percentage = Math.round((current / total) * 100);
-            elements.progressBar.style.width = `${percentage}%`;
-            elements.progressBar.textContent = `${percentage}%`;
-        }
-        
-        // Stop the processing
-        async function stopProcessing() {
-            if (processing && !shouldStop) {
-                shouldStop = true;
-                elements.stopButton.disabled = true;
-                elements.progressBar.className = 'progress-bar progress-warning';
-                showMessage(elements.progressOutput, "---> ⏳ Yêu cầu dừng đã được gửi, chờ hoàn thành hoặc dừng tác vụ hiện tại...", false);
-                showDebug("Stop request received.");
-                
-                try {
-                    await fetch('/.netlify/functions/stop-processing', {
-                        method: 'POST'
-                    });
-                } catch (error) {
-                    showError(`Failed to send stop request: ${error.message}`);
-                }
-            } else if (!processing) {
-                showMessage(elements.progressOutput, "Không có tác vụ nào đang chạy để dừng.", false);
-                elements.stopButton.disabled = true;
-            }
-        }
-        
-        // Load the latest results
-        async function loadResults() {
-            elements.resultOutput.innerHTML = '';
-            elements.completionOutput.innerHTML = '';
-            elements.errorOutput.innerHTML = '';
-            showDebug("Load results clicked.");
-            
-            try {
-                const response = await fetch('/.netlify/functions/load-results');
-                if (!response.ok) {
-                    throw new Error(`Server error: ${response.status}`);
-                }
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    showMessage(elements.resultOutput, `--- Nội dung từ ${data.fileName} ---\n\n${data.content}`, true);
-                    showMessage(elements.completionOutput, `✅ Đã tải nội dung từ: ${data.filePath}`, true);
-                    resultFilePath = data.filePath;
-                } else {
-                    showMessage(elements.completionOutput, `ℹ️ ${data.message}`, true);
-                    elements.loadButton.disabled = true;
-                }
-                
-            } catch (error) {
-                showError(`Lỗi khi tải kết quả: ${error.message}`);
-                showDebug(`Exception during load_results: ${error.stack}`);
-                showMessage(elements.completionOutput, "❌ Lỗi khi tải kết quả.", true);
-                elements.loadButton.disabled = true;
-            }
-        }
-        
-        // Finish processing and reset UI
-        function finishProcessing(success) {
-            processing = false;
-            elements.submitButton.disabled = false;
-            elements.stopButton.disabled = true;
-            elements.loadButton.disabled = !(resultFilePath != null);
-            
-            if (shouldStop) {
-                elements.progressBar.className = 'progress-bar progress-warning';
-            } else if (!success) {
-                elements.progressBar.className = 'progress-bar progress-danger';
-            } else {
-                elements.progressBar.className = 'progress-bar progress-success';
-            }
-            
-            showDebug(`Processing finished. Success: ${success}, Stopped: ${shouldStop}`);
-        }
-        
-        // Initialize application
-        document.addEventListener('DOMContentLoaded', init);
+        });
+
     </script>
+
 </body>
 </html>
